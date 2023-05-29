@@ -9,9 +9,9 @@ Removes the system sites of Managed, OnDemand & Deleted Devices.
 
 Gets the API URL, Key and Secret from .env or environment variables (example below)
 
-Functions to interact with the DattoRMM API are in the [dattormmapi.py](https://github.com/jscooksey/xxxxx/blob/main/dattormmapi.py) Python file.
+Functions to interact with the DattoRMM API are in the [dattormmapi.py](https://github.com/jscooksey/DattoRMM-API/blob/main/dattormmapi.py) Python file.
 
-Main function to do the API requests and export to CSV is in the [export_sites.py](https://github.com/jscooksey/xxxxx/blob/main/export_sites.py) Python file.
+Main function to do the API requests and export to CSV is in the [export_sites.py](https://github.com/jscooksey/DattoRMM-API/blob/main/export_sites.py) Python file.
 
 Not much error/exception managment in this at the moment.
 
