@@ -55,3 +55,76 @@ def dattormm_api_request(api_uri: str, api_access_token: str, api_request_body: 
         return ""
 
     return response.json()
+
+def dattormm_api_put(api_uri: str, api_access_token: str, api_request_body):
+    """
+    Request data from DattoRMM API
+
+    Args:
+        api_url (str): API Url
+        api_access_token (str): Access token
+        api_request (str): API Request
+        api_request_body (str): Body of API request
+
+    Returns:
+        _type_: JSON formatted response
+    """
+
+    headers = {"Authorization": f"Bearer {api_access_token}", "ContentType": "application/json"}
+
+    # 	# Make request
+    response = requests.put(api_uri, headers=headers, json=api_request_body, timeout=5)
+
+    if response.status_code != 200:
+        print(f"Failed Request {response.status_code}")
+
+    return response
+
+
+def dattormm_api_site_variables(api_url: str, api_access_token: str, site_uid):
+    
+    headers = {"Authorization": f"Bearer {api_access_token}", "ContentType": "application/json"}
+
+    api_uri = f"{api_url}/api/v2/site/{site_uid}/variables"
+    response = requests.get(api_uri, headers=headers, timeout=5)
+
+    if response.status_code != 200:
+        print(f"Failed Request {response.status_code}")
+    data = response.json()
+
+    return data['variables']  
+
+
+def dattormm_api_update_site_variable(api_url: str, api_access_token: str, site_uid, var_id, value):
+    
+    headers = {"Authorization": f"Bearer {api_access_token}", "ContentType": "application/json"}
+
+    api_request_body = {"name" : "strInstall",
+                        "value": value, 
+                        "masked": False
+                       }
+
+    api_uri = f"{api_url}/api/v2/site/{site_uid}/variable/{var_id}"
+    response = requests.post(api_uri, headers=headers, json=api_request_body, timeout=5)
+
+    if response.status_code != 200:
+        print(f"Failed to update site varibale: {response.status_code}")
+
+    return response.status_code
+
+def dattormm_api_new_site_variable(api_url: str, api_access_token: str, site_uid, value):
+    
+    headers = {"Authorization": f"Bearer {api_access_token}", "ContentType": "application/json"}
+
+    api_request_body = {"name" : "strInstall",
+                        "value": value, 
+                        "masked": False
+                       }
+
+    api_uri = f"{api_url}/api/v2/site/{site_uid}/variable"
+    response = requests.put(api_uri, headers=headers, json=api_request_body, timeout=5)
+
+    if response.status_code != 200:
+        print(f"Failed to create new site variable: {response.status_code}")
+
+    return response.status_code

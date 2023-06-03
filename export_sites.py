@@ -54,7 +54,7 @@ def main():
     df_sites = pd.concat([df_sites, df_devicesStatus], axis=1, sort=False)
 
     # Drop columns not reuired for the export
-    df_sites = df_sites.drop(columns=["devicesStatus", "uid", "accountUid", "notes", "onDemand", "splashtopAutoInstall", "proxySettings"])
+    df_sites = df_sites.drop(columns=["devicesStatus", "notes", "onDemand", "splashtopAutoInstall", "proxySettings"])
 
     # Drop the rows of the DattoRMM System Sites that we dont want to keep for CSV export
     df_sites = df_sites[df_sites["name"].str.contains("Managed") == False]
