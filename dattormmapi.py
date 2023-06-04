@@ -1,130 +1,155 @@
 """
-Functions to interact with DattoRMM API    
+Class to interact with DattoRMM API    
 """
 
+import pandas as pd
 import requests
+import validators
 
 
-def dattormm_get_token(api_url: str, api_key: str, api_secret_key: str) -> str:
+class DattoRMMAPI:
     """
-    Get comms token for DattoRMM API
-
-    Args:
-        api_url (str): URL for DattoRMM API end point
-        api_key (str): DattoRMM API Key
-        api_secret_key (str): DattoRMM API Secret Key
-
-    Returns:
-        str: DattoAPI Access Token for this communication
-    """
-    headers = {"ContentType": "application/x-www-form-urlencoded"}
-    api_uri = f"{api_url}/auth/oauth/token"
-    token_request_payload = {"grant_type": "password", "username": api_key, "password": api_secret_key}
-
-    response = requests.post(url=api_uri, data=token_request_payload, headers=headers, auth=("public-client", "public"), timeout=5)
-
-    if response.status_code != 200:
-        print("Failed to get token")
-        return ""
-
-    tokens = response.json()
-    return tokens["access_token"]
-
-
-def dattormm_api_request(api_uri: str, api_access_token: str, api_request_body: str):
-    """
-    Request data from DattoRMM API
-
-    Args:
-        api_url (str): API Url
-        api_access_token (str): Access token
-        api_request (str): API Request
-        api_request_body (str): Body of API request
-
-    Returns:
-        _type_: JSON formatted response
+    DattoRMM API class
     """
 
-    headers = {"Authorization": f"Bearer {api_access_token}", "ContentType": "application/json"}
+    def __init__(self, api_url: str, api_key: str, api_secret: str):
+        """
+        Initialise the class.  Get access token for remaiing method calls
 
-    # 	# Make request
-    response = requests.get(api_uri, headers=headers, data=api_request_body, timeout=5)
+        Args:
+            api_url (str): URL to be used for all API call. ie https://syrah-api.centrastage.net
+            api_key (str): API Key to be used for authentication
+            api_secret (str): API Secret to be used for authentication
+        """
 
-    if response.status_code != 200:
-        print("Failed Request")
-        return ""
+        # Validate the passed variables
+        if validators.url(api_url):
+            self.api_url = api_url
+        else:
+            self.api_url = ""
+            return
+            # Abort object creaation
+        self.api_key = api_key
+        self.api_secret = api_secret
+        self.token = ""
 
-    return response.json()
+        headers = {"ContentType": "application/x-www-form-urlencoded"}
+        api_uri = f"{api_url}/auth/oauth/token"
+        payload = {"grant_type": "password", "username": api_key, "password": api_secret}
 
-def dattormm_api_put(api_uri: str, api_access_token: str, api_request_body):
-    """
-    Request data from DattoRMM API
+        response = requests.post(url=api_uri, data=payload, headers=headers, auth=("public-client", "public"), timeout=5)
 
-    Args:
-        api_url (str): API Url
-        api_access_token (str): Access token
-        api_request (str): API Request
-        api_request_body (str): Body of API request
+        tokens = response.json()
+        self.token = tokens["access_token"]
 
-    Returns:
-        _type_: JSON formatted response
-    """
+    def __str__(self):
+        return f"DattoRMM API URL = {self.api_url}"
 
-    headers = {"Authorization": f"Bearer {api_access_token}", "ContentType": "application/json"}
+    def get_site_list(self, only_customers: bool) -> pd.DataFrame:
+        """
+        Gets list of all sites in DattoRMM portal
 
-    # 	# Make request
-    response = requests.put(api_uri, headers=headers, json=api_request_body, timeout=5)
+        Args:
+            only_customers (bool): True to only return customers and remove system Sites
 
-    if response.status_code != 200:
-        print(f"Failed Request {response.status_code}")
+        Returns:
+            pd.DataFrame: Pandas DataFrame containing details of all sites
+        """
 
-    return response
+        headers = {"Authorization": f"Bearer {self.token}", "ContentType": "application/json"}
 
+        api_uri = f"{self.api_url}/api/v2/account/sites"
+        response = requests.get(api_uri, headers=headers, timeout=5)
 
-def dattormm_api_site_variables(api_url: str, api_access_token: str, site_uid):
-    
-    headers = {"Authorization": f"Bearer {api_access_token}", "ContentType": "application/json"}
+        # Import the first page of results in to Pandas DataFrame
+        df_sites = pd.DataFrame(response["sites"])
 
-    api_uri = f"{api_url}/api/v2/site/{site_uid}/variables"
-    response = requests.get(api_uri, headers=headers, timeout=5)
+        page_details = response["pageDetails"]
 
-    if response.status_code != 200:
-        print(f"Failed Request {response.status_code}")
-    data = response.json()
+        # While we still have another page of results continue to that page
+        # and concat results in to primary Pandas DataFrame
+        while page_details["nextPageUrl"]:
+            response = requests.get(page_details["nextPageUrl"], headers=headers, timeout=5)
+            page_details = response["pageDetails"]
+            df_sites = pd.concat([df_sites, pd.DataFrame(response["sites"])], ignore_index=True)
 
-    return data['variables']  
+        # Convert the remaining devicesStatus column from JSON string to additional DataFrame columns
+        df_devicesStatus = pd.json_normalize(df_sites.devicesStatus)
+        df_sites = pd.concat([df_sites, df_devicesStatus], axis=1, sort=False)
 
+        # Drop the rows of the DattoRMM System Sites if only_customers is true
+        if only_customers:
+            df_sites = df_sites[df_sites["name"].str.contains("Managed") == False]
+            df_sites = df_sites[df_sites["name"].str.contains("OnDemand") == False]
+            df_sites = df_sites[df_sites["name"].str.contains("Deleted Devices") == False]
 
-def dattormm_api_update_site_variable(api_url: str, api_access_token: str, site_uid, var_id, value):
-    
-    headers = {"Authorization": f"Bearer {api_access_token}", "ContentType": "application/json"}
+        return df_sites
 
-    api_request_body = {"name" : "strInstall",
-                        "value": value, 
-                        "masked": False
-                       }
+    def get_site_variables(self, site_uid: str):
+        """
+        Get all site variables for a particular site
 
-    api_uri = f"{api_url}/api/v2/site/{site_uid}/variable/{var_id}"
-    response = requests.post(api_uri, headers=headers, json=api_request_body, timeout=5)
+        Args:
+            site_uid (str): UID for the site requested
 
-    if response.status_code != 200:
-        print(f"Failed to update site varibale: {response.status_code}")
+        Returns:
+            _type_: Returns array of all site variables
+        """
+        headers = {"Authorization": f"Bearer {self.token}", "ContentType": "application/json"}
 
-    return response.status_code
+        api_uri = f"{self.api_url}/api/v2/site/{site_uid}/variables"
+        response = requests.get(api_uri, headers=headers, timeout=5)
 
-def dattormm_api_new_site_variable(api_url: str, api_access_token: str, site_uid, value):
-    
-    headers = {"Authorization": f"Bearer {api_access_token}", "ContentType": "application/json"}
+        if response.status_code != 200:
+            print(f"Failed Request {response.status_code}")
+        data = response.json()
 
-    api_request_body = {"name" : "strInstall",
-                        "value": value, 
-                        "masked": False
-                       }
+        return data["variables"]
 
-    api_uri = f"{api_url}/api/v2/site/{site_uid}/variable"
-    response = requests.put(api_uri, headers=headers, json=api_request_body, timeout=5)
+    def update_site_variable(self, site_uid: str, var_id: int, value: str):
+        """
+        Update a site variable
 
-    if response.status_code != 200:
-        print(f"Failed to create new site variable: {response.status_code}")
+        Args:
+            site_uid (str): UID of the site in question
+            var_id (int): Variable ID thats to be updated
+            value (str): New value for the variable
 
-    return response.status_code
+        Returns:
+            int: Request reposnse status
+        """
+        headers = {"Authorization": f"Bearer {self.token}", "ContentType": "application/json"}
+
+        api_request_body = {"name": "strInstall", "value": value, "masked": False}
+
+        api_uri = f"{self.api_url}/api/v2/site/{site_uid}/variable/{var_id}"
+        response = requests.post(api_uri, headers=headers, json=api_request_body, timeout=5)
+
+        if response.status_code != 200:
+            print(f"Failed to update site varibale: {response.status_code}")
+
+        return response.status_code
+
+    def new_site_variable(self, site_uid: str, name: str, value: str):
+        """
+        Create a new site variable
+
+        Args:
+            site_uid (str): UID of the site to adjust
+            name (str): Name of the variable
+            value (str): Value of the variable
+
+        Returns:
+            int: Response code value
+        """
+        headers = {"Authorization": f"Bearer {self.token}", "ContentType": "application/json"}
+
+        api_request_body = {"name": name, "value": value, "masked": False}
+
+        api_uri = f"{self.api_url}/api/v2/site/{site_uid}/variable"
+        response = requests.put(api_uri, headers=headers, json=api_request_body, timeout=5)
+
+        if response.status_code != 200:
+            print(f"Failed to create new site variable: {response.status_code}")
+
+        return response.status_code

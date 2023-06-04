@@ -13,9 +13,7 @@ import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 
-from dattormmapi import (dattormm_api_new_site_variable, dattormm_api_put,
-                         dattormm_api_site_variables,
-                         dattormm_api_update_site_variable, dattormm_get_token)
+from dattormmapi import DattoRMMAPI
 
 
 def main():
@@ -34,29 +32,25 @@ def main():
     csv_filename = r"data/all_data_20230602.csv"
     df_variables = pd.read_csv(csv_filename)
 
-    api_access_token = dattormm_get_token(api_url, api_key, api_secret_key)
+    dra = DattoRMMAPI(api_url, api_key, api_secret_key)
 
-
-    for index, row in df_variables.iterrows():
+    for row in df_variables.iterrows():
         str_install = f"CUSTOMERID={row.nc_id} REGISTRATION_TOKEN={row.nc_token}"
-        if(not np.isnan(row.datto_id)):
+        if not np.isnan(row.datto_id):
+            variable_list = dra.get_site_variables(site_uid=row.datto_uid)
 
-
-            variable_list = dattormm_api_site_variables(api_url=api_url, api_access_token=api_access_token, site_uid=row.datto_uid)
-   
             id = 0
             for variable in variable_list:
-                if variable['name'] == 'strInstall':
-                    id = variable['id']
-            
+                if variable["name"] == "strInstall":
+                    id = variable["id"]
+
             if id == 0:
-                dattormm_api_new_site_variable(api_url, api_access_token, site_uid=row.datto_uid, value=str_install)
+                dra.new_site_variable(site_uid=row.datto_uid, name="strInstall", value=str_install)
             else:
-                dattormm_api_update_site_variable(api_url, api_access_token, site_uid=row.datto_uid, var_id=id, value=str_install)
+                dra.update_site_variable(site_uid=row.datto_uid, var_id=id, value=str_install)
 
             print(row.psa_name)
             print(str_install)
-        
 
 
 if __name__ == "__main__":
