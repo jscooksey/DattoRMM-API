@@ -60,18 +60,20 @@ class DattoRMMAPI:
 
         api_uri = f"{self.api_url}/api/v2/account/sites"
         response = requests.get(api_uri, headers=headers, timeout=5)
+        results = response.json()
 
         # Import the first page of results in to Pandas DataFrame
-        df_sites = pd.DataFrame(response["sites"])
+        df_sites = pd.DataFrame(results["sites"])
 
-        page_details = response["pageDetails"]
+        page_details = results["pageDetails"]
 
         # While we still have another page of results continue to that page
         # and concat results in to primary Pandas DataFrame
         while page_details["nextPageUrl"]:
             response = requests.get(page_details["nextPageUrl"], headers=headers, timeout=5)
-            page_details = response["pageDetails"]
-            df_sites = pd.concat([df_sites, pd.DataFrame(response["sites"])], ignore_index=True)
+            results = response.json()
+            page_details = results["pageDetails"]
+            df_sites = pd.concat([df_sites, pd.DataFrame(results["sites"])], ignore_index=True)
 
         # Convert the remaining devicesStatus column from JSON string to additional DataFrame columns
         df_devicesStatus = pd.json_normalize(df_sites.devicesStatus)

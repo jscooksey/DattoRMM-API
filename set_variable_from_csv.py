@@ -34,7 +34,7 @@ def main():
 
     dra = DattoRMMAPI(api_url, api_key, api_secret_key)
 
-    for row in df_variables.iterrows():
+    for index, row in df_variables.iterrows():
         str_install = f"CUSTOMERID={row.nc_id} REGISTRATION_TOKEN={row.nc_token}"
         if not np.isnan(row.datto_id):
             variable_list = dra.get_site_variables(site_uid=row.datto_uid)
