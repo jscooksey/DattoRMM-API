@@ -78,6 +78,7 @@ class DattoRMMAPI:
         # Convert the remaining devicesStatus column from JSON string to additional DataFrame columns
         df_devicesStatus = pd.json_normalize(df_sites.devicesStatus)
         df_sites = pd.concat([df_sites, df_devicesStatus], axis=1, sort=False)
+        df_sites = df_sites.drop("devicesStatus", axis=1)
 
         # Drop the rows of the DattoRMM System Sites if only_customers is true
         if only_customers:

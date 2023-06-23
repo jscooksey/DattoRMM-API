@@ -30,7 +30,7 @@ def main():
     dra = DattoRMMAPI(api_url, api_key, api_secret_key)
 
     customers = dra.get_site_list(only_customers=True)
-    customers.to_csv("export_all.csv", index=False)
+    customers.to_csv("data/export_dattormm_all.csv", index=False)
 
 
 if __name__ == "__main__":
